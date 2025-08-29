@@ -172,6 +172,8 @@ export default function PatternSearchPage() {
                 data: number[];
                 startTime: string;
                 endTime: string;
+                startTimestamp: number;
+                endTimestamp: number;
                 continuation: number[];
                 continuationStartTime: string;
                 continuationEndTime: string;

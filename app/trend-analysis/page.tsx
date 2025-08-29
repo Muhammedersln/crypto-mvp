@@ -177,7 +177,15 @@ export default function TrendAnalysisPage() {
               interval={trendAnalysisData.interval || ''}
               analysisHours={trendAnalysisData.analysisHours || 0}
               recentData={trendAnalysisData.recentData || []}
-              recentStats={trendAnalysisData.recentStats}
+              recentStats={trendAnalysisData.recentStats as {
+                totalChange: number;
+                volatility: number;
+                upMoves: number;
+                downMoves: number;
+                sidewaysMoves: number;
+                totalMoves: number;
+                avgChange: number;
+              }}
               matches={(trendAnalysisData.matches || []) as {
                 startIndex: number;
                 endIndex: number;
@@ -185,11 +193,22 @@ export default function TrendAnalysisPage() {
                 data: number[];
                 startTime: string;
                 endTime: string;
+                startTimestamp: number;
+                endTimestamp: number;
                 continuation: number[];
                 continuationStartTime: string;
                 continuationEndTime: string;
                 continuationStartTimestamp: number;
                 continuationEndTimestamp: number;
+                stats: {
+                  totalChange: number;
+                  volatility: number;
+                  upMoves: number;
+                  downMoves: number;
+                  sidewaysMoves: number;
+                  totalMoves: number;
+                  avgChange: number;
+                };
               }[]}
             />
           </div>

@@ -188,7 +188,7 @@ export default function LiveChartPage() {
         {/* Auto-refresh Info */}
         <div className="max-w-2xl mx-auto mt-8 text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Grafik verileri manuel olarak yüklenir. Güncel veriler için "Canlı Grafik Yükle" butonuna tıklayın.
+            Grafik verileri manuel olarak yüklenir. Güncel veriler için &quot;Canlı Grafik Yükle&quot; butonuna tıklayın.
           </p>
         </div>
       </div>
