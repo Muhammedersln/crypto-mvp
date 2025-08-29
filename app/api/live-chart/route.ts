@@ -1,5 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { cache, CacheKeys, CacheTTL } from '@/lib/cache';
+
+// Timeout ve retry ayarları
+const FETCH_TIMEOUT = 25000; // 25 saniye
+const MAX_RETRIES = 2;
+
+// Timeout ile fetch wrapper
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = FETCH_TIMEOUT) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+// Retry ile fetch
+async function fetchWithRetry(url: string, options: RequestInit = {}, retries = MAX_RETRIES) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await fetchWithTimeout(url, options);
+    } catch (error) {
+      if (i === retries) throw error;
+      // Exponential backoff: 1s, 2s, 4s
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
 
 // Query parametreleri için validation schema
 const querySchema = z.object({
@@ -30,6 +67,15 @@ export async function GET(request: NextRequest) {
     
     const { symbol, interval, hours } = validatedQuery;
     
+    // Cache kontrolü
+    const cacheKey = CacheKeys.liveChart(symbol, interval, hours);
+    const cachedData = cache.get(cacheKey);
+    
+    if (cachedData) {
+      console.log(`Cache hit: ${cacheKey}`);
+      return NextResponse.json(cachedData);
+    }
+    
     // Son N saat için zaman aralığı
     const endTime = Date.now();
     const startTime = endTime - (hours * 60 * 60 * 1000);
@@ -39,13 +85,15 @@ export async function GET(request: NextRequest) {
     
     console.log(`Güncel grafik verisi alınıyor: ${symbol} - ${interval} - ${hours} saat`);
     
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       headers: {
         'User-Agent': 'crypto-similarity-mvp/1.0'
       }
     });
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Binance API hatası: ${response.status} - ${errorText}`);
       throw new Error(`Binance API hatası: ${response.status}`);
     }
     
@@ -73,7 +121,7 @@ export async function GET(request: NextRequest) {
     const low24h = Math.min(...chartData.map((d: { low: number }) => d.low));
     const volume24h = chartData.reduce((sum: number, d: { volume: number }) => sum + d.volume, 0);
     
-    return NextResponse.json({
+    const responseData = {
       symbol,
       interval,
       hours,
@@ -89,7 +137,13 @@ export async function GET(request: NextRequest) {
         startTime: new Date(startTime).toISOString(),
         endTime: new Date(endTime).toISOString()
       }
-    });
+    };
+    
+    // Cache'e kaydet
+    cache.set(cacheKey, responseData, CacheTTL.LIVE_CHART);
+    console.log(`Cache set: ${cacheKey} (TTL: ${CacheTTL.LIVE_CHART}s)`);
+    
+    return NextResponse.json(responseData);
     
   } catch (error) {
     console.error('Live chart API hatası:', error);
@@ -98,6 +152,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Geçersiz parametreler', details: error.issues },
         { status: 400 }
+      );
+    }
+    
+    // Network timeout hatası
+    if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout'))) {
+      return NextResponse.json(
+        { error: 'İstek zaman aşımına uğradı', details: 'Lütfen tekrar deneyin' },
+        { status: 408 }
+      );
+    }
+    
+    // Binance API hatası
+    if (error instanceof Error && error.message.includes('Binance API hatası')) {
+      return NextResponse.json(
+        { error: 'Binance API hatası', details: error.message },
+        { status: 502 }
       );
     }
     

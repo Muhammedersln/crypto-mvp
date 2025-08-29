@@ -2,33 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { findPatternMatches } from '@/lib/similarity';
 
-// Query parametreleri için validation schema
-const querySchema = z.object({
+// POST body için validation schema
+const bodySchema = z.object({
   symbol: z.string().min(1, 'Sembol gerekli'),
   interval: z.enum(['1m', '5m', '15m', '1h', '4h']),
-  pattern: z.string().min(1, 'Pattern gerekli').transform(val => {
-    try {
-      const parsed = JSON.parse(val);
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        throw new Error('Geçersiz pattern formatı');
-      }
-      return parsed.map(Number).filter(n => !isNaN(n));
-    } catch {
-      throw new Error('Pattern JSON formatında olmalı');
-    }
-  }),
-  threshold: z.string().default('0.75').transform(val => {
-    const num = parseFloat(val);
-    return isNaN(num) || num < 0 || num > 1 ? 0.75 : num;
-  }),
-  maxMatches: z.string().default('10').transform(val => {
-    const num = parseInt(val);
-    return isNaN(num) || num < 1 || num > 20 ? 10 : num;
-  }),
-  continuationLength: z.string().default('30').transform(val => {
-    const num = parseInt(val);
-    return isNaN(num) || num < 10 || num > 100 ? 30 : num;
-  })
+  pattern: z.array(z.number()).min(1, 'Pattern gerekli'),
+  threshold: z.number().min(0).max(1).default(0.75),
+  maxMatches: z.number().int().min(1).max(20).default(10),
+  continuationLength: z.number().int().min(10).max(100).default(30)
 });
 
 // Interval'a göre milisaniye hesabı
@@ -125,7 +106,7 @@ async function fetchHistoricalData(symbol: string, interval: string): Promise<nu
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const validatedQuery = querySchema.parse(body);
+    const validatedQuery = bodySchema.parse(body);
     
     console.log('Pattern search başlatılıyor:', {
       symbol: validatedQuery.symbol,
