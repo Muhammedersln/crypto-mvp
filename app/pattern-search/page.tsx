@@ -36,7 +36,8 @@ export default function PatternSearchPage() {
           interval,
           pattern: currentPattern,
           threshold: 0.75,
-          maxMatches: 10
+          maxMatches: 10,
+          continuationLength: 30
         }),
       });
       
