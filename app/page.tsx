@@ -71,7 +71,6 @@ export default function Home() {
   const [symbol, setSymbol] = useState('BTCUSDT');
   const [interval, setInterval] = useState('15m');
   const [window, setWindow] = useState(60);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isTestingHistorical, setIsTestingHistorical] = useState(false);
   const [historicalResult, setHistoricalResult] = useState<HistoricalResult | null>(null);
   
@@ -103,14 +102,7 @@ export default function Home() {
     }
   );
 
-  const handleAnalyze = async () => {
-    setIsAnalyzing(true);
-    try {
-      await mutate();
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+
 
   const handleTestHistorical = async () => {
     setIsTestingHistorical(true);
@@ -414,27 +406,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto mb-8">
           <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
             {activeTab === 'similarity' ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <button
-              onClick={handleAnalyze}
-              disabled={isAnalyzing}
-                  className="h-14 px-6 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl disabled:shadow-none"
-            >
-              {isAnalyzing ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Analiz Ediliyor...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                      <span>Benzerlik Analizi Başlat</span>
-                </>
-              )}
-            </button>
-
+              <div className="flex justify-center">
             <button
               onClick={handleTestHistorical}
               disabled={isTestingHistorical}
@@ -564,11 +536,11 @@ export default function Home() {
                   {error.message || 'Veri alınırken bir hata oluştu. Lütfen tekrar deneyin.'}
                 </div>
                 <button
-                  onClick={handleAnalyze}
+                  onClick={() => mutate()}
                   className="mt-3 text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition-colors"
-                  disabled={isAnalyzing || isLoading}
+                  disabled={isLoading}
                 >
-                  {isAnalyzing || isLoading ? 'Yeniden Deniyor...' : 'Tekrar Dene'}
+                  {isLoading ? 'Yeniden Deniyor...' : 'Tekrar Dene'}
                 </button>
               </div>
             </div>
@@ -588,8 +560,23 @@ export default function Home() {
           </div>
         )}
 
+        {/* Loading State for Similarity Analysis */}
+        {activeTab === 'similarity' && isLoading && !data && (
+          <div className="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8">
+            <div className="flex flex-col items-center justify-center text-center">
+              <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Benzerlik Analizi Yapılıyor
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {symbol} - {interval} verileri analiz ediliyor...
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Similarity Analysis Results */}
-        {activeTab === 'similarity' && data && (
+        {activeTab === 'similarity' && data && !error && (
           <div className="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">
               Analiz Sonuçları
