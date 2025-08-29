@@ -55,7 +55,17 @@ interface TrendAnalysisData {
   error?: string;
 }
 
-const fetcher = (url: string) => fetch(url).then(res => res.json());
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(errorMessage);
+  }
+  
+  return response.json();
+};
 
 export default function Home() {
   const [symbol, setSymbol] = useState('BTCUSDT');
@@ -79,12 +89,17 @@ export default function Home() {
   const [trendAnalysisData, setTrendAnalysisData] = useState<TrendAnalysisData | null>(null);
   const [isTrendAnalyzing, setIsTrendAnalyzing] = useState(false);
 
-  const { data, error, mutate } = useSWR<AnalyzeResponse>(
+  const { data, error, mutate, isLoading } = useSWR<AnalyzeResponse>(
     `/api/analyze?symbol=${symbol}&interval=${interval}&window=${window}`,
     fetcher,
     {
       refreshInterval: 30000, // 30 saniye
-      revalidateOnFocus: false
+      revalidateOnFocus: false,
+      errorRetryCount: 2,
+      errorRetryInterval: 3000,
+      onError: (error) => {
+        console.error('SWR API hatası:', error);
+      }
     }
   );
 
@@ -539,12 +554,23 @@ export default function Home() {
         {/* Results */}
         {activeTab === 'similarity' && error && (
           <div className="max-w-2xl mx-auto bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-8">
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="text-red-800 dark:text-red-200 font-medium">Hata:</span>
-              <span className="text-red-700 dark:text-red-300">Veri alınırken bir hata oluştu</span>
+              <div className="flex-1">
+                <div className="text-red-800 dark:text-red-200 font-medium mb-1">Benzerlik Analizi Hatası</div>
+                <div className="text-red-700 dark:text-red-300 text-sm">
+                  {error.message || 'Veri alınırken bir hata oluştu. Lütfen tekrar deneyin.'}
+                </div>
+                <button
+                  onClick={handleAnalyze}
+                  className="mt-3 text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition-colors"
+                  disabled={isAnalyzing || isLoading}
+                >
+                  {isAnalyzing || isLoading ? 'Yeniden Deniyor...' : 'Tekrar Dene'}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -657,12 +683,23 @@ export default function Home() {
         {/* Live Chart Error */}
         {activeTab === 'live' && liveChartData?.error && (
           <div className="max-w-4xl mx-auto bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-8">
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="text-red-800 dark:text-red-200 font-medium">Hata:</span>
-              <span className="text-red-700 dark:text-red-300">{liveChartData.error}</span>
+              <div className="flex-1">
+                <div className="text-red-800 dark:text-red-200 font-medium mb-1">Canlı Grafik Hatası</div>
+                <div className="text-red-700 dark:text-red-300 text-sm">
+                  {liveChartData.error}
+                </div>
+                <button
+                  onClick={handleLoadChart}
+                  className="mt-3 text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition-colors"
+                  disabled={isLoadingChart}
+                >
+                  {isLoadingChart ? 'Yeniden Yükleniyor...' : 'Tekrar Yükle'}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -694,12 +731,23 @@ export default function Home() {
         {/* Trend Analysis Error */}
         {activeTab === 'trend' && trendAnalysisData?.error && (
           <div className="max-w-4xl mx-auto bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-8">
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="text-red-800 dark:text-red-200 font-medium">Hata:</span>
-              <span className="text-red-700 dark:text-red-300">{trendAnalysisData.error}</span>
+              <div className="flex-1">
+                <div className="text-red-800 dark:text-red-200 font-medium mb-1">Trend Analizi Hatası</div>
+                <div className="text-red-700 dark:text-red-300 text-sm">
+                  {trendAnalysisData.error}
+                </div>
+                <button
+                  onClick={handleTrendAnalysis}
+                  className="mt-3 text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition-colors"
+                  disabled={isTrendAnalyzing}
+                >
+                  {isTrendAnalyzing ? 'Yeniden Analiz Ediliyor...' : 'Tekrar Analiz Et'}
+                </button>
+              </div>
             </div>
           </div>
         )}
