@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
 
     // Benzer patternleri bul (sadece %90+ benzerlik)
     console.log('Finding similar patterns with 90%+ similarity...');
-    const matches = findSimilarPatterns(normalizedPattern, closePrices, windowSize, 0.9, 10);
+    const matches = findSimilarPatterns(normalizedPattern, closePrices, windowSize, 0.8, 10);
 
     if (matches.length === 0) {
       return NextResponse.json({
